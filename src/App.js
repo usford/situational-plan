@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import './App.css';
 
 import schema from './config/schema.svg';
+import {getOtherLine} from './getOtherLine.js';
 
 let isWs = false;
 const ws = new WebSocket('ws://localhost:7777');
@@ -67,7 +68,16 @@ function connectWs()
   }
 
   ws.onmessage = evt => {
-    console.log(evt.data);
+    const message = JSON.parse(evt.data);
+    console.log(message);
+
+    if (message.lines != null )
+    {
+      for (let item of message.lines)
+      {
+        changeLine(item);
+      }
+    }
   }
 
   ws.onclose = () => {
@@ -100,5 +110,69 @@ function clickHandling(id)
         break;
       }
   }
+}
+
+//Обработка входящего запроса на изменение линии
+function changeLine(id)
+{
+  let doc = document.getElementById('svgObject').contentDocument;
+  let svgUrl = getOtherLine(id, doc);
+
+  if (svgUrl.url == 0) return;
+
+
+  let newElement = document.createElement('div');
+  newElement.setAttribute("id", "div" + id);
+  newElement.setAttribute("style", 'opacity:0');
+
+  newElement.innerHTML = `<object id="svgObject2" data=${svgUrl.url} type="image/svg+xml" width="1" height="1"> \
+  Your browser doesnt support SVG \
+  </object>`;
+
+  let parent = document.getElementById("divSVG").parentNode;
+
+  parent.appendChild(newElement);
+
+  if (svgUrl.url != 0) {
+    document.getElementById("svgObject2").addEventListener("load", function () {
+      setTimeout(() => {
+        let doc2 = document.getElementById('svgObject2').contentDocument;
+        replaceLine(id, svgUrl.id, doc2);
+      }, 1000);
+    });
+
+  } else {
+    document.getElementById("div" + id).remove();
+  }
+}
+
+//Непосредственная замена линии
+function replaceLine(id, oldID, doc2)
+{
+  let doc = document.getElementById('svgObject').contentDocument;
+
+  let selection = doc2.querySelector('g');
+
+  //console.log(`oldID1: ${oldID}`);
+  //console.log(`id1: ${id}`)
+  //console.log(`selection: ${selection}`);
+
+  if (!selection) return;
+
+  let newElement = selection;
+  let oldElement = doc.getElementById(oldID);
+
+  if (oldElement == null) {
+    document.getElementById("div" + id).remove();
+    return;
+  };
+
+  //newElement.setAttribute("transform", oldElement.getAttribute("transform"));
+  newElement.setAttribute("id", newElement.getAttribute("id"));
+
+  let parentDiv = oldElement.parentNode;
+
+  parentDiv.replaceChild(newElement, oldElement);
+  document.getElementById("div" + id).remove();
 }
 export default Main;
